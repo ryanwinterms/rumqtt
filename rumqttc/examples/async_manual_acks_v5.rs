@@ -60,6 +60,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // create new broker connection
     let (client, mut eventloop) = create_conn();
 
+    // ACK packets with different delays
+    let waits = vec![20, 18, 16, 14, 12, 10, 8, 6, 4, 2, 1];
+    let n_wait = waits.len();
+    let mut n_ack = 0;
     while let Ok(event) = eventloop.poll().await {
         println!("{event:?}");
 
@@ -71,13 +75,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
             // this time we will ack incoming publishes.
             // Its important not to block notifier as this can cause deadlock.
             let c = client.clone();
+            let wait = waits[n_ack].clone();
             tokio::spawn(async move {
                 let mut ack = c.get_manual_ack(&publish);
+                time::sleep(Duration::from_millis(wait)).await;
                 ack.set_reason(ManualAckReason::UnspecifiedError);
                 ack.set_reason_string("Testing error".to_string().into());
                 c.manual_ack(ack).await.unwrap();
-                // c.ack(&publish).await.unwrap();
             });
+            n_ack = (n_ack + 1) % n_wait;
         }
     }
 
@@ -91,6 +97,6 @@ async fn requests(client: &AsyncClient) {
             .await
             .unwrap();
 
-        time::sleep(Duration::from_secs(1)).await;
+        time::sleep(Duration::from_millis(100)).await;
     }
 }
