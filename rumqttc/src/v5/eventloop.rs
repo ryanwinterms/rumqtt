@@ -163,6 +163,8 @@ impl EventLoop {
         match self.select().await {
             Ok(v) => Ok(v),
             Err(e) => {
+                // MQTT requires that packets pending acknowledgement should be republished on session resume.
+                // Move pending messages from state to eventloop.
                 self.clean();
                 Err(e)
             }
@@ -417,7 +419,6 @@ async fn mqtt_connect(
     // validate connack
     match network.read().await? {
         Incoming::ConnAck(connack) if connack.code == ConnectReturnCode::Success => {
-            // Override local keep_alive value if set by server.
             if let Some(props) = &connack.properties {
                 if let Some(keep_alive) = props.server_keep_alive {
                     options.keep_alive = Duration::from_secs(keep_alive as u64);
