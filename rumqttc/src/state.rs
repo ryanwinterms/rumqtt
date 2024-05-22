@@ -96,7 +96,7 @@ impl MqttState {
             // index 0 is wasted as 0 is not a valid packet id
             outgoing_pub: HashMap::new(),
             outgoing_rel: HashMap::new(),
-            incoming_pub: vec![None; std::u16::MAX as usize + 1],
+            incoming_pub: vec![None; u16::MAX as usize + 1],
             outgoing_sub: HashMap::new(),
             outgoing_unsub: HashMap::new(),
             collision: None,
@@ -166,6 +166,8 @@ impl MqttState {
         &mut self,
         packet: Incoming,
     ) -> Result<Option<Packet>, StateError> {
+        self.events.push_back(Event::Incoming(packet.clone()));
+
         let outgoing = match &packet {
             Incoming::PingResp => self.handle_incoming_pingresp()?,
             Incoming::Publish(publish) => self.handle_incoming_publish(publish)?,
@@ -180,7 +182,6 @@ impl MqttState {
                 return Err(StateError::WrongPacket);
             }
         };
-        self.events.push_back(Event::Incoming(packet));
         self.last_incoming = Instant::now();
 
         Ok(outgoing)

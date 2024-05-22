@@ -144,7 +144,7 @@ impl MqttState {
             // index 0 is wasted as 0 is not a valid packet id
             outgoing_pub: HashMap::new(),
             outgoing_rel: HashMap::new(),
-            incoming_pub: vec![None; std::u16::MAX as usize + 1],
+            incoming_pub: vec![None; u16::MAX as usize + 1],
             outgoing_sub: HashMap::new(),
             outgoing_unsub: HashMap::new(),
             collision: None,
@@ -221,6 +221,8 @@ impl MqttState {
         &mut self,
         mut packet: Incoming,
     ) -> Result<Option<Packet>, StateError> {
+        self.events.push_back(Event::Incoming(packet.to_owned()));
+
         let outgoing = match &mut packet {
             Incoming::PingResp(_) => self.handle_incoming_pingresp()?,
             Incoming::Publish(publish) => self.handle_incoming_publish(publish)?,
@@ -238,7 +240,6 @@ impl MqttState {
             }
         };
 
-        self.events.push_back(Event::Incoming(packet));
         self.last_incoming = Instant::now();
         Ok(outgoing)
     }
@@ -375,7 +376,7 @@ impl MqttState {
             }
         } else if let Some(alias) = topic_alias {
             if let Some(topic) = self.topic_alises.get(&alias) {
-                publish.topic = topic.to_owned();
+                topic.clone_into(&mut publish.topic);
             } else {
                 self.handle_protocol_error()?;
             };
