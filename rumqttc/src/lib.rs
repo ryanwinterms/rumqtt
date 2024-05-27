@@ -100,7 +100,7 @@ extern crate log;
 
 use std::fmt::{self, Debug, Formatter};
 
-#[cfg(any(feature = "use-rustls", feature = "websocket"))]
+#[cfg(any(feature = "use-rustls",feature = "use-native-tls", feature = "websocket"))]
 use std::sync::Arc;
 
 use std::time::Duration;
@@ -150,6 +150,10 @@ use tokio::sync::oneshot;
 pub use tokio_rustls;
 #[cfg(feature = "use-rustls")]
 use tokio_rustls::rustls::{ClientConfig, RootCertStore};
+#[cfg(feature = "use-native-tls")]
+pub use tokio_native_tls;
+#[cfg(feature = "use-native-tls")]
+use tokio_native_tls::native_tls::TlsConnectorBuilder;
 
 #[cfg(feature = "proxy")]
 pub use proxy::{Proxy, ProxyAuth, ProxyType};
@@ -378,7 +382,7 @@ impl Transport {
 }
 
 /// TLS configuration method
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 #[cfg(any(feature = "use-rustls", feature = "use-native-tls"))]
 pub enum TlsConfiguration {
     #[cfg(feature = "use-rustls")]
@@ -402,7 +406,11 @@ pub enum TlsConfiguration {
     /// Injected rustls ClientConfig for TLS, to allow more customisation.
     Rustls(Arc<ClientConfig>),
     #[cfg(feature = "use-native-tls")]
+    /// Use default native-tls configuration
     Native,
+    #[cfg(feature = "use-native-tls")]
+    /// Injected native-tls TlsConnectorBuilder for TLS, to allow more customisation.
+    NativeBuilder(Arc<TlsConnectorBuilder>),
 }
 
 #[cfg(feature = "use-rustls")]
@@ -424,6 +432,13 @@ impl Default for TlsConfiguration {
 impl From<ClientConfig> for TlsConfiguration {
     fn from(config: ClientConfig) -> Self {
         TlsConfiguration::Rustls(Arc::new(config))
+    }
+}
+
+#[cfg(feature = "use-native-tls")]
+impl From<TlsConnectorBuilder> for TlsConfiguration {
+    fn from(builder: TlsConnectorBuilder) -> Self {
+        TlsConfiguration::NativeBuilder(Arc::new(builder))
     }
 }
 
