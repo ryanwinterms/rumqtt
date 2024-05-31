@@ -157,7 +157,7 @@ impl MqttState {
     ) -> Result<Option<Packet>, StateError> {
         let packet = match request {
             Request::Publish(tx, publish) => self.outgoing_publish(publish, tx)?,
-            Request::PubRel(tx, pubrel) => self.outgoing_pubrel(pubrel, tx)?,
+            Request::PubRel(pubrel) => self.outgoing_pubrel(pubrel)?,
             Request::Subscribe(tx, subscribe) => self.outgoing_subscribe(subscribe, tx)?,
             Request::Unsubscribe(tx, unsubscribe) => self.outgoing_unsubscribe(unsubscribe, tx)?,
             Request::PingReq(_) => self.outgoing_ping()?,
@@ -423,10 +423,9 @@ impl MqttState {
 
     fn outgoing_pubrel(
         &mut self,
-        pubrel: PubRel,
-        notice_tx: Option<NoticeTx>,
+        pubrel: PubRel
     ) -> Result<Option<Packet>, StateError> {
-        let pubrel = self.save_pubrel(pubrel, notice_tx)?;
+        let pubrel = self.save_pubrel(pubrel)?;
 
         debug!("Pubrel. Pkid = {}", pubrel.pkid);
         let event = Event::Outgoing(Outgoing::PubRel(pubrel.pkid));
@@ -549,8 +548,7 @@ impl MqttState {
 
     fn save_pubrel(
         &mut self,
-        mut pubrel: PubRel,
-        notice_tx: Option<NoticeTx>,
+        mut pubrel: PubRel
     ) -> Result<PubRel, StateError> {
         let pubrel = match pubrel.pkid {
             // consider PacketIdentifier(0) as uninitialized packets

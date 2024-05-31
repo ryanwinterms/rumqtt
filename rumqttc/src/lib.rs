@@ -257,7 +257,7 @@ pub enum Request {
     PubAck(PubAck),
     PubRec(PubRec),
     PubComp(PubComp),
-    PubRel(Option<NoticeTx>, PubRel),
+    PubRel(PubRel),
     PingReq(PingReq),
     PingResp(PingResp),
     Subscribe(Option<NoticeTx>, Subscribe),
