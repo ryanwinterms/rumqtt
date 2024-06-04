@@ -1,6 +1,7 @@
 use crate::{framed::Network, Transport};
 use crate::{Incoming, MqttState, NetworkOptions, Packet, Request, StateError};
 use crate::{MqttOptions, Outgoing};
+use crate::NoticeError;
 
 use crate::framed::AsyncReadWrite;
 use crate::mqttbytes::v4::*;
@@ -159,7 +160,12 @@ impl EventLoop {
             };
             // Last session might contain packets which aren't acked. If it's a new session, clear the pending packets.
             if !connack.session_present {
-                self.pending.clear();
+                for request in self.pending.drain(..) {
+                    // If the request is a publish request, send an error to the future that is waiting for the ack.
+                    if let Request::Publish(Some(tx), _) = request {
+                        tx.error(NoticeError::SessionReset)
+                    }
+                }
             }
             self.network = Some(network);
 

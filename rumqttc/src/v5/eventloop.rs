@@ -3,6 +3,7 @@ use super::mqttbytes::v5::*;
 use super::{Incoming, MqttOptions, MqttState, Outgoing, Request, StateError, Transport};
 use crate::eventloop::socket_connect;
 use crate::framed::AsyncReadWrite;
+use crate::NoticeError;
 
 use flume::{bounded, Receiver, Sender};
 use tokio::select;
@@ -151,7 +152,12 @@ impl EventLoop {
             .await??;
             // Last session might contain packets which aren't acked. If it's a new session, clear the pending packets.
             if !connack.session_present {
-                self.pending.clear();
+                for request in self.pending.drain(..) {
+                    // If the request is a publish request, send an error to the future that is waiting for the ack.
+                    if let Request::Publish(Some(tx), _) = request {
+                        tx.error(NoticeError::SessionReset)
+                    }
+                }
             }
             self.network = Some(network);
 
