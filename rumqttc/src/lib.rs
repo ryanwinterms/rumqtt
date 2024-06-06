@@ -100,7 +100,10 @@ extern crate log;
 
 use std::fmt::{self, Debug, Formatter};
 
-#[cfg(any(feature = "use-rustls",feature = "use-native-tls", feature = "websocket"))]
+#[cfg(any(
+    feature = "use-rustls",
+    feature = "websocket"
+))]
 use std::sync::Arc;
 
 use std::time::Duration;
@@ -146,14 +149,14 @@ pub use state::{MqttState, StateError};
 #[cfg(any(feature = "use-rustls", feature = "use-native-tls"))]
 pub use tls::Error as TlsError;
 use tokio::sync::oneshot;
+#[cfg(feature = "use-native-tls")]
+pub use tokio_native_tls;
+#[cfg(feature = "use-native-tls")]
+use tokio_native_tls::native_tls::TlsConnector;
 #[cfg(feature = "use-rustls")]
 pub use tokio_rustls;
 #[cfg(feature = "use-rustls")]
 use tokio_rustls::rustls::{ClientConfig, RootCertStore};
-#[cfg(feature = "use-native-tls")]
-pub use tokio_native_tls;
-#[cfg(feature = "use-native-tls")]
-use tokio_native_tls::native_tls::TlsConnectorBuilder;
 
 #[cfg(feature = "proxy")]
 pub use proxy::{Proxy, ProxyAuth, ProxyType};
@@ -300,8 +303,8 @@ pub enum Transport {
     #[cfg(feature = "websocket")]
     #[cfg_attr(docsrs, doc(cfg(feature = "websocket")))]
     Ws,
-    #[cfg(all(feature = "use-rustls", feature = "websocket"))]
-    #[cfg_attr(docsrs, doc(cfg(all(feature = "use-rustls", feature = "websocket"))))]
+    #[cfg(all(any(feature = "use-rustls", feature = "use-native-tls"), feature = "websocket"))]
+    #[cfg_attr(docsrs, doc(cfg(all(any(feature = "use-rustls", feature = "use-native-tls"), feature = "websocket"))))]
     Wss(TlsConfiguration),
 }
 
@@ -372,8 +375,8 @@ impl Transport {
         Self::wss_with_config(config)
     }
 
-    #[cfg(all(feature = "use-rustls", feature = "websocket"))]
-    #[cfg_attr(docsrs, doc(cfg(all(feature = "use-rustls", feature = "websocket"))))]
+    #[cfg(all(any(feature = "use-rustls", feature = "use-native-tls"), feature = "websocket"))]
+    #[cfg_attr(docsrs, doc(cfg(all(any(feature = "use-rustls", feature = "use-native-tls"), feature = "websocket"))))]
     pub fn wss_with_config(tls_config: TlsConfiguration) -> Self {
         Self::Wss(tls_config)
     }
@@ -386,7 +389,7 @@ impl Transport {
 }
 
 /// TLS configuration method
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 #[cfg(any(feature = "use-rustls", feature = "use-native-tls"))]
 pub enum TlsConfiguration {
     #[cfg(feature = "use-rustls")]
@@ -413,8 +416,8 @@ pub enum TlsConfiguration {
     /// Use default native-tls configuration
     Native,
     #[cfg(feature = "use-native-tls")]
-    /// Injected native-tls TlsConnectorBuilder for TLS, to allow more customisation.
-    NativeBuilder(Arc<TlsConnectorBuilder>),
+    /// Injected native-tls TlsConnector for TLS, to allow more customisation.
+    NativeConnector(TlsConnector),
 }
 
 #[cfg(feature = "use-rustls")]
@@ -440,9 +443,9 @@ impl From<ClientConfig> for TlsConfiguration {
 }
 
 #[cfg(feature = "use-native-tls")]
-impl From<TlsConnectorBuilder> for TlsConfiguration {
-    fn from(builder: TlsConnectorBuilder) -> Self {
-        TlsConfiguration::NativeBuilder(Arc::new(builder))
+impl From<TlsConnector> for TlsConfiguration {
+    fn from(connector: TlsConnector) -> Self {
+        TlsConfiguration::NativeConnector(connector)
     }
 }
 
