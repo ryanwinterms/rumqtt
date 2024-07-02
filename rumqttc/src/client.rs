@@ -240,7 +240,7 @@ impl AsyncClient {
     where
         T: IntoIterator<Item = SubscribeFilter>,
     {
-        let mut topics_iter = topics.into_iter();
+        let topics_iter = topics.into_iter();
         let subscribe = Subscribe::new_many(topics_iter);
         let subscribe_has_valid_filters = subscribe_has_valid_filters(&subscribe);
         let (notice_tx, notice_rx) = tokio::sync::oneshot::channel();
@@ -258,7 +258,7 @@ impl AsyncClient {
     where
         T: IntoIterator<Item = SubscribeFilter>,
     {
-        let mut topics_iter = topics.into_iter();
+        let topics_iter = topics.into_iter();
         let subscribe = Subscribe::new_many(topics_iter);
         let subscribe_has_valid_filters = subscribe_has_valid_filters(&subscribe);
         let (notice_tx, notice_rx) = tokio::sync::oneshot::channel();
@@ -491,7 +491,7 @@ impl Client {
     where
         T: IntoIterator<Item = SubscribeFilter>,
     {
-        let mut topics_iter = topics.into_iter();
+        let topics_iter = topics.into_iter();
         let subscribe = Subscribe::new_many(topics_iter);
         let subscribe_has_valid_filters = subscribe_has_valid_filters(&subscribe);
         let (notice_tx, notice_rx) = tokio::sync::oneshot::channel();

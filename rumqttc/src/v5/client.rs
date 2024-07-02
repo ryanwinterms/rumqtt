@@ -8,7 +8,7 @@ use super::mqttbytes::v5::{
 };
 use super::mqttbytes::QoS;
 use super::{ConnectionError, Event, EventLoop, MqttOptions, Request};
-use crate::{valid_topic, NoticeFuture, NoticeTx};
+use crate::{valid_topic, valid_filter, NoticeFuture, NoticeTx};
 
 use bytes::Bytes;
 use flume::{SendError, Sender, TrySendError};
@@ -314,9 +314,10 @@ impl AsyncClient {
     ) -> Result<NoticeFuture, ClientError> {
         let filter = Filter::new(topic, qos);
         let subscribe = Subscribe::new(filter, properties);
+        let subscribe_has_valid_filters = subscribe_has_valid_filters(&subscribe);
         let (notice_tx, notice_rx) = tokio::sync::oneshot::channel();
         let request = Request::Subscribe(Some(NoticeTx(notice_tx)), subscribe);
-        if !subscribe_has_valid_filters(&subscribe) {
+        if !subscribe_has_valid_filters {
             return Err(ClientError::Request(request));
         }
         self.request_tx.send_async(request).await?;
@@ -349,9 +350,10 @@ impl AsyncClient {
     ) -> Result<NoticeFuture, ClientError> {
         let filter = Filter::new(topic, qos);
         let subscribe = Subscribe::new(filter, properties);
+        let subscribe_has_valid_filters = subscribe_has_valid_filters(&subscribe);
         let (notice_tx, notice_rx) = tokio::sync::oneshot::channel();
         let request = Request::Subscribe(Some(NoticeTx(notice_tx)), subscribe);
-        if !subscribe_has_valid_filters(&subscribe) {
+        if !subscribe_has_valid_filters {
             return Err(ClientError::TryRequest(request));
         }
         self.request_tx.try_send(request)?;
@@ -384,12 +386,12 @@ impl AsyncClient {
     where
         T: IntoIterator<Item = Filter>,
     {
-        let mut topics_iter = topics.into_iter();
-        let is_valid_filters = topics_iter.all(|filter| valid_filter(&filter.path));
+        let topics_iter = topics.into_iter();
         let subscribe = Subscribe::new_many(topics_iter, properties);
+        let subscribe_has_valid_filters = subscribe_has_valid_filters(&subscribe);
         let (notice_tx, notice_rx) = tokio::sync::oneshot::channel();
         let request = Request::Subscribe(Some(NoticeTx(notice_tx)), subscribe);
-        if !subscribe_has_valid_filters(&subscribe) {
+        if !subscribe_has_valid_filters {
             return Err(ClientError::Request(request));
         }
 
@@ -424,11 +426,12 @@ impl AsyncClient {
     where
         T: IntoIterator<Item = Filter>,
     {
-        let mut topics_iter = topics.into_iter();
+        let topics_iter = topics.into_iter();
         let subscribe = Subscribe::new_many(topics_iter, properties);
+        let subscribe_has_valid_filters = subscribe_has_valid_filters(&subscribe);
         let (notice_tx, notice_rx) = tokio::sync::oneshot::channel();
         let request = Request::Subscribe(Some(NoticeTx(notice_tx)), subscribe);
-        if !subscribe_has_valid_filters(&subscribe) {
+        if !subscribe_has_valid_filters {
             return Err(ClientError::TryRequest(request));
         }
         self.request_tx.try_send(request)?;
@@ -810,9 +813,10 @@ impl Client {
     ) -> Result<NoticeFuture, ClientError> {
         let filter = Filter::new(topic, qos);
         let subscribe = Subscribe::new(filter, properties);
+        let subscribe_has_valid_filters = subscribe_has_valid_filters(&subscribe);
         let (notice_tx, notice_rx) = tokio::sync::oneshot::channel();
         let request = Request::Subscribe(Some(NoticeTx(notice_tx)), subscribe);
-        if !subscribe_has_valid_filters(&subscribe) {
+        if !subscribe_has_valid_filters {
             return Err(ClientError::Request(request));
         }
         self.client.request_tx.send(request)?;
@@ -864,12 +868,12 @@ impl Client {
     where
         T: IntoIterator<Item = Filter>,
     {
-        let mut topics_iter = topics.into_iter();
-        let is_valid_filters = topics_iter.all(|filter| valid_filter(&filter.path));
+        let topics_iter = topics.into_iter();
         let subscribe = Subscribe::new_many(topics_iter, properties);
+        let subscribe_has_valid_filters = subscribe_has_valid_filters(&subscribe);
         let (notice_tx, notice_rx) = tokio::sync::oneshot::channel();
         let request = Request::Subscribe(Some(NoticeTx(notice_tx)), subscribe);
-        if !subscribe_has_valid_filters(&subscribe) {
+        if !subscribe_has_valid_filters {
             return Err(ClientError::Request(request));
         }
         self.client.request_tx.send(request)?;

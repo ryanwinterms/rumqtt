@@ -1,4 +1,4 @@
-use tokio::task::{self, JoinSet};
+use tokio::{task::{self, JoinSet}, time};
 
 use rumqttc::{AsyncClient, MqttOptions, QoS};
 use std::error::Error;
@@ -35,6 +35,20 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .wait_async()
         .await
         .unwrap();
+    client
+        .subscribe("hello/world", QoS::AtLeastOnce)
+        .await
+        .unwrap()
+        .wait_async()
+        .await
+        .unwrap();
+    client
+        .subscribe("hello/world", QoS::ExactlyOnce)
+        .await
+        .unwrap()
+        .wait_async()
+        .await
+        .unwrap();
 
     // Publish and spawn wait for notification
     let mut set = JoinSet::new();
@@ -61,5 +75,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
         println!("Acknoledged = {:?}", res?);
     }
 
+    time::sleep(Duration::from_secs(6)).await;
     Ok(())
 }
