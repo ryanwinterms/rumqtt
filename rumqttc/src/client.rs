@@ -205,10 +205,11 @@ impl AsyncClient {
     ) -> Result<NoticeFuture, ClientError> {
         let topic = topic.into();
         let subscribe = Subscribe::new(&topic, qos);
+        let subscribe_has_valid_filters = subscribe_has_valid_filters(&subscribe);
         let (notice_tx, notice_rx) = tokio::sync::oneshot::channel();
         let notice_tx = NoticeTx(notice_tx);
         let request = Request::Subscribe(Some(notice_tx), subscribe);
-        if !valid_filter(&topic) {
+        if !subscribe_has_valid_filters {
             return Err(ClientError::Request(request));
         }
         self.request_tx.send_async(request).await?;
@@ -223,10 +224,11 @@ impl AsyncClient {
     ) -> Result<NoticeFuture, ClientError> {
         let topic = topic.into();
         let subscribe = Subscribe::new(&topic, qos);
+        let subscribe_has_valid_filters = subscribe_has_valid_filters(&subscribe);
         let (notice_tx, notice_rx) = tokio::sync::oneshot::channel();
         let notice_tx = NoticeTx(notice_tx);
         let request = Request::Subscribe(Some(notice_tx), subscribe);
-        if !valid_filter(&topic) {
+        if !subscribe_has_valid_filters {
             return Err(ClientError::TryRequest(request));
         }
         self.request_tx.try_send(request)?;
@@ -239,12 +241,12 @@ impl AsyncClient {
         T: IntoIterator<Item = SubscribeFilter>,
     {
         let mut topics_iter = topics.into_iter();
-        let is_valid_filters = topics_iter.all(|filter| valid_filter(&filter.path));
         let subscribe = Subscribe::new_many(topics_iter);
+        let subscribe_has_valid_filters = subscribe_has_valid_filters(&subscribe);
         let (notice_tx, notice_rx) = tokio::sync::oneshot::channel();
         let notice_tx = NoticeTx(notice_tx);
         let request = Request::Subscribe(Some(notice_tx), subscribe);
-        if !is_valid_filters {
+        if !subscribe_has_valid_filters {
             return Err(ClientError::Request(request));
         }
         self.request_tx.send_async(request).await?;
@@ -257,12 +259,12 @@ impl AsyncClient {
         T: IntoIterator<Item = SubscribeFilter>,
     {
         let mut topics_iter = topics.into_iter();
-        let is_valid_filters = topics_iter.all(|filter| valid_filter(&filter.path));
         let subscribe = Subscribe::new_many(topics_iter);
+        let subscribe_has_valid_filters = subscribe_has_valid_filters(&subscribe);
         let (notice_tx, notice_rx) = tokio::sync::oneshot::channel();
         let notice_tx = NoticeTx(notice_tx);
         let request = Request::Subscribe(Some(notice_tx), subscribe);
-        if !is_valid_filters {
+        if !subscribe_has_valid_filters {
             return Err(ClientError::TryRequest(request));
         }
         self.request_tx.try_send(request)?;
@@ -464,10 +466,11 @@ impl Client {
     ) -> Result<NoticeFuture, ClientError> {
         let topic = topic.into();
         let subscribe = Subscribe::new(&topic, qos);
+        let subscribe_has_valid_filters = subscribe_has_valid_filters(&subscribe);
         let (notice_tx, notice_rx) = tokio::sync::oneshot::channel();
         let notice_tx = NoticeTx(notice_tx);
         let request = Request::Subscribe(Some(notice_tx), subscribe);
-        if !valid_filter(&topic) {
+        if !subscribe_has_valid_filters {
             return Err(ClientError::Request(request));
         }
         self.client.request_tx.send(request)?;
@@ -489,12 +492,12 @@ impl Client {
         T: IntoIterator<Item = SubscribeFilter>,
     {
         let mut topics_iter = topics.into_iter();
-        let is_valid_filters = topics_iter.all(|filter| valid_filter(&filter.path));
         let subscribe = Subscribe::new_many(topics_iter);
+        let subscribe_has_valid_filters = subscribe_has_valid_filters(&subscribe);
         let (notice_tx, notice_rx) = tokio::sync::oneshot::channel();
         let notice_tx = NoticeTx(notice_tx);
         let request = Request::Subscribe(Some(notice_tx), subscribe);
-        if !is_valid_filters {
+        if !subscribe_has_valid_filters {
             return Err(ClientError::Request(request));
         }
         self.client.request_tx.send(request)?;
@@ -536,6 +539,15 @@ impl Client {
         self.client.try_disconnect()?;
         Ok(())
     }
+}
+
+#[must_use]
+fn subscribe_has_valid_filters(subscribe: &Subscribe) -> bool {
+    !subscribe.filters.is_empty()
+        && subscribe
+            .filters
+            .iter()
+            .all(|filter| valid_filter(&filter.path))
 }
 
 /// Error type returned by [`Connection::recv`]

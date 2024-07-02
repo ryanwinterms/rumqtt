@@ -6,7 +6,7 @@ use super::mqttbytes::v5::{
     Auth, AuthProperties, AuthReasonCode, Filter, PubAck, PubRec, Publish, PublishProperties,
     Subscribe, SubscribeProperties, Unsubscribe, UnsubscribeProperties,
 };
-use super::mqttbytes::{valid_filter, QoS};
+use super::mqttbytes::QoS;
 use super::{ConnectionError, Event, EventLoop, MqttOptions, Request};
 use crate::{valid_topic, NoticeFuture, NoticeTx};
 
@@ -313,11 +313,10 @@ impl AsyncClient {
         properties: Option<SubscribeProperties>,
     ) -> Result<NoticeFuture, ClientError> {
         let filter = Filter::new(topic, qos);
-        let is_filter_valid = valid_filter(&filter.path);
         let subscribe = Subscribe::new(filter, properties);
         let (notice_tx, notice_rx) = tokio::sync::oneshot::channel();
         let request = Request::Subscribe(Some(NoticeTx(notice_tx)), subscribe);
-        if !is_filter_valid {
+        if !subscribe_has_valid_filters(&subscribe) {
             return Err(ClientError::Request(request));
         }
         self.request_tx.send_async(request).await?;
@@ -349,11 +348,10 @@ impl AsyncClient {
         properties: Option<SubscribeProperties>,
     ) -> Result<NoticeFuture, ClientError> {
         let filter = Filter::new(topic, qos);
-        let is_filter_valid = valid_filter(&filter.path);
         let subscribe = Subscribe::new(filter, properties);
         let (notice_tx, notice_rx) = tokio::sync::oneshot::channel();
         let request = Request::Subscribe(Some(NoticeTx(notice_tx)), subscribe);
-        if !is_filter_valid {
+        if !subscribe_has_valid_filters(&subscribe) {
             return Err(ClientError::TryRequest(request));
         }
         self.request_tx.try_send(request)?;
@@ -391,7 +389,7 @@ impl AsyncClient {
         let subscribe = Subscribe::new_many(topics_iter, properties);
         let (notice_tx, notice_rx) = tokio::sync::oneshot::channel();
         let request = Request::Subscribe(Some(NoticeTx(notice_tx)), subscribe);
-        if !is_valid_filters {
+        if !subscribe_has_valid_filters(&subscribe) {
             return Err(ClientError::Request(request));
         }
 
@@ -427,11 +425,10 @@ impl AsyncClient {
         T: IntoIterator<Item = Filter>,
     {
         let mut topics_iter = topics.into_iter();
-        let is_valid_filters = topics_iter.all(|filter| valid_filter(&filter.path));
         let subscribe = Subscribe::new_many(topics_iter, properties);
         let (notice_tx, notice_rx) = tokio::sync::oneshot::channel();
         let request = Request::Subscribe(Some(NoticeTx(notice_tx)), subscribe);
-        if !is_valid_filters {
+        if !subscribe_has_valid_filters(&subscribe) {
             return Err(ClientError::TryRequest(request));
         }
         self.request_tx.try_send(request)?;
@@ -812,11 +809,10 @@ impl Client {
         properties: Option<SubscribeProperties>,
     ) -> Result<NoticeFuture, ClientError> {
         let filter = Filter::new(topic, qos);
-        let is_filter_valid = valid_filter(&filter.path);
         let subscribe = Subscribe::new(filter, properties);
         let (notice_tx, notice_rx) = tokio::sync::oneshot::channel();
         let request = Request::Subscribe(Some(NoticeTx(notice_tx)), subscribe);
-        if !is_filter_valid {
+        if !subscribe_has_valid_filters(&subscribe) {
             return Err(ClientError::Request(request));
         }
         self.client.request_tx.send(request)?;
@@ -873,7 +869,7 @@ impl Client {
         let subscribe = Subscribe::new_many(topics_iter, properties);
         let (notice_tx, notice_rx) = tokio::sync::oneshot::channel();
         let request = Request::Subscribe(Some(NoticeTx(notice_tx)), subscribe);
-        if !is_valid_filters {
+        if !subscribe_has_valid_filters(&subscribe) {
             return Err(ClientError::Request(request));
         }
         self.client.request_tx.send(request)?;
@@ -970,6 +966,15 @@ impl Client {
         self.client.try_disconnect()?;
         Ok(())
     }
+}
+
+#[must_use]
+fn subscribe_has_valid_filters(subscribe: &Subscribe) -> bool {
+    !subscribe.filters.is_empty()
+        && subscribe
+            .filters
+            .iter()
+            .all(|filter| valid_filter(&filter.path))
 }
 
 /// Error type returned by [`Connection::recv`]

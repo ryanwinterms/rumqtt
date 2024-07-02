@@ -55,18 +55,6 @@ pub enum StateError {
         reason_code: DisconnectReasonCode,
         reason_string: Option<String>,
     },
-    #[error("Unsubscribe failed with reason '{reason:?}' ")]
-    UnsubFail { reason: UnsubAckReason },
-    #[error("Subscribe failed with reason '{reason:?}' ")]
-    SubFail { reason: SubscribeReasonCode },
-    #[error("Publish acknowledgement failed with reason '{reason:?}' ")]
-    PubAckFail { reason: PubAckReason },
-    #[error("Publish receive failed with reason '{reason:?}' ")]
-    PubRecFail { reason: PubRecReason },
-    #[error("Publish release failed with reason '{reason:?}' ")]
-    PubRelFail { reason: PubRelReason },
-    #[error("Publish completion failed with reason '{reason:?}' ")]
-    PubCompFail { reason: PubCompReason },
     #[error("Connection failed with reason '{reason:?}' ")]
     ConnFail { reason: ConnectReturnCode },
     #[error("Connection closed by peer abruptly")]
@@ -287,8 +275,8 @@ impl MqttState {
                     if let Some(tx) = tx {
                         tx.error(NoticeError::V5Subscribe(*reason));
                     }
-
-                    return Err(StateError::SubFail { reason: *reason });
+                    warn!("SubAck Pkid = {:?}, Reason = {:?}", suback.pkid, reason);
+                    return Ok(None);
                 }
             }
         }
@@ -320,7 +308,8 @@ impl MqttState {
                     tx.error(NoticeError::V5Unsubscribe(*reason));
                 }
 
-                return Err(StateError::UnsubFail { reason: *reason });
+                warn!("UnsubAck Pkid = {:?}, Reason = {:?}", unsuback.pkid, reason);
+                return Ok(None);
             }
         }
 
@@ -438,9 +427,8 @@ impl MqttState {
             if let Some(tx) = tx {
                 tx.error(NoticeError::V5PubAck(puback.reason));
             }
-            return Err(StateError::PubAckFail {
-                reason: puback.reason,
-            });
+            warn!("PubAck Pkid = {:?}, reason: {:?}", puback.pkid, puback.reason);
+            return Ok(None);
         }
         if let Some(tx) = tx
         {
@@ -479,9 +467,8 @@ impl MqttState {
             if let Some(tx) = tx {
                 tx.error(NoticeError::V5PubRec(pubrec.reason));
             }
-            return Err(StateError::PubRecFail {
-                reason: pubrec.reason,
-            });
+            warn!("PubRec Pkid = {:?}, reason: {:?}", pubrec.pkid, pubrec.reason);
+            return Ok(None);
         } else {
 
             // Notifying the PUBREC from broker, PUBREL and PUBCOMP will be in backgroud
@@ -506,9 +493,8 @@ impl MqttState {
         self.incoming_pub.set(pubrel.pkid as usize, false);
 
         if pubrel.reason != PubRelReason::Success {
-            return Err(StateError::PubRelFail {
-                reason: pubrel.reason,
-            });
+            warn!("PubRel Pkid = {:?}, reason: {:?}", pubrel.pkid, pubrel.reason);
+            return Ok(None);
         }
 
         let event = Event::Outgoing(Outgoing::PubComp(pubrel.pkid));
@@ -535,9 +521,8 @@ impl MqttState {
         self.inflight -= 1;
 
         if pubcomp.reason != PubCompReason::Success {
-            return Err(StateError::PubCompFail {
-                reason: pubcomp.reason,
-            });
+            warn!("PubComp Pkid = {:?}, reason: {:?}", pubcomp.pkid, pubcomp.reason);
+            return Ok(None);
         }
         Ok(outgoing)
     }
