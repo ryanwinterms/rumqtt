@@ -167,7 +167,7 @@ use v5::mqttbytes::v5::{SubscribeReasonCode as V5SubscribeReasonCode,
                         UnsubAckReason,
                         PubAckReason, PubRecReason, PubCompReason};
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, Clone, thiserror::Error)]
 pub enum NoticeError {
     #[error("Eventloop dropped Sender")]
     Recv,
